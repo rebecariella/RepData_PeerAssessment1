@@ -1,0 +1,178 @@
+---
+title: 'Reproducible Research: Peer Assessment 1'
+author: "Rebeca Riella"
+date: "28 de septiembre de 2021"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+## Loading and preprocessing the data
+
+```{r, warning=FALSE}
+url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+setwd("C:/Users/rriella/Desktop/Curso Coursera Data Science/5. Reproducible Research")
+temp = tempfile()
+download.file(url, temp,mode="wb")
+unzip(temp, "activity.csv")
+base = read.table("activity.csv", sep=",", header=T)
+
+str(base)
+
+```
+
+
+
+
+
+## What is mean total number of steps taken per day?
+
+Total number of steps taken per day
+```{r, warning=FALSE}
+
+library(tidyverse)
+base %>% 
+  group_by(date) %>% 
+  summarise(total = sum(steps,na.rm=T)) %>% head()
+```
+
+Histogram of the total number of steps taken each day
+
+```{r}
+plot1 = base %>% 
+  group_by(date) %>% 
+  summarise(total = sum(steps,na.rm=T)) %>% 
+  ggplot(aes(x=total))+geom_histogram(col="white", fill="blue", alpha=0.3)+
+  labs(x= "Total number of steps taken per day", title="Plot 1: Histogram of the number of steps taken each day")
+plot1
+```
+
+
+Mean and median of the total number of steps taken per day
+```{r, warning=FALSE}
+a = base %>% 
+  group_by(date) %>% 
+  summarise(total = sum(steps,na.rm=T)) %>% 
+  summarise(mean = mean(total,na.rm=T),
+            median = median(total,na.rm=T))
+knitr::kable(a)
+```
+
+
+## What is the average daily activity pattern?
+
+Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+```{r, warning=FALSE}
+
+
+base %>% 
+  group_by(interval) %>% 
+  summarise(mean = mean(steps,na.rm=T)) %>% 
+    ggplot(aes(x=interval, y=mean))+geom_line(col="blue", alpha=0.3, lwd=1.3)+
+  labs(title = "Plot 2. Average number of steps taken of each 5-minute interval",
+       x = "Time")
+
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r, warning=FALSE}
+b= base %>% 
+  group_by(interval) %>% 
+  summarise(mean = mean(steps,na.rm=T)) %>% slice_max(mean)
+knitr::kable(b)
+```
+
+## Imputing missing values
+
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+```{r, warning=FALSE}
+
+base %>% summarise(total_NA = sum(is.na(steps)))
+```
+
+Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+Strategy: I fill all the missing values in the dataset using the mean for that 5-minute interval.
+
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r, warning=FALSE}
+
+base_woNA = base %>% 
+  group_by(interval) %>% 
+    mutate(steps_interval = mean(steps,na.rm=T)) %>% 
+  ungroup() %>% 
+  mutate(steps = ifelse(is.na(steps)==T,steps_interval,steps))
+  
+```
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+```{r, warning=FALSE}
+plot3 = base_woNA %>% 
+  group_by(date) %>% 
+  summarise(total = sum(steps,na.rm=T)) %>% 
+  ggplot(aes(x=total))+geom_histogram(col="white", fill="green", alpha=0.3)+
+  labs(x= "Total number of steps taken per day", 
+     title="Plot 3: Histogram of the number of steps taken each day. NA imputed")
+plot3
+``` 
+
+
+```{r}
+a = base_woNA %>% 
+  group_by(date) %>% 
+  summarise(total = sum(steps,na.rm=T)) %>% 
+  summarise(mean = mean(total,na.rm=T),
+            median = median(total,na.rm=T))
+knitr::kable(a)
+```
+
+
+```{r, warning=FALSE}
+library(cowplot)
+
+plot_grid(nrow = 2, 
+plot1,
+plot3,
+labels = "Plot 4")
+
+  
+```
+
+Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+**Answer:** The main differences are:
+
+* There are not as much 0
+
+* There are more counts in the middle of the distribution
+
+* Mean and Median are equal
+
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+```{r, warning=FALSE}
+
+library(lubridate)
+base %>% 
+  mutate(
+    date = as.Date(date,"%Y-%m-%d"),
+    wday =wday(date),
+    weekdays = ifelse(wday %in% c(2:6),"weekday","weekend")) %>% 
+     group_by(interval,weekdays) %>% 
+  summarise(mean = mean(steps,na.rm=T)) %>% ungroup() %>% 
+    ggplot(aes(x=interval, y=mean))+geom_line(col="blue", alpha=0.3, lwd=1.3)+facet_grid(weekdays~.)
+
+    
+```
+
+
+
